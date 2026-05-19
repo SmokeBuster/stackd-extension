@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!--
+  Open this file in Chrome, then click "Download All Icons".
+  Move the downloaded PNG files into the /icons/ folder.
+  You can then delete this file.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stackd – Icon Generator</title>
+<style>
+  body { font-family: sans-serif; padding: 32px; background: #f5f5f5; }
+  h2   { margin-bottom: 16px; color: #7C3AED; }
+  canvas { display: none; }
+  .previews { display: flex; gap: 24px; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; }
+  .preview  { text-align: center; }
+  .preview img { display: block; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .preview p { margin-top: 6px; font-size: 12px; color: #555; }
+  button { background: #7C3AED; color: #fff; border: none; border-radius: 8px;
+           padding: 12px 28px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button:hover { background: #5B21B6; }
+</style>
+</head>
+<body>
+<h2>Stackd Icon Generator</h2>
+<p style="margin-bottom:20px;color:#555;">Click the button below to generate and download all icon sizes.</p>
+
+<div class="previews" id="previews"></div>
+<button onclick="downloadAll()">⬇ Download All Icons</button>
+
+<canvas id="c"></canvas>
+
+<script>
+const sizes = [16, 48, 128];
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+function drawIcon(size) {
+  canvas.width  = size;
+  canvas.height = size;
+
+  const r = size * 0.22; // corner radius
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, '#7C3AED');
+  grad.addColorStop(1, '#5B21B6');
+
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(size - r, 0);
+  ctx.quadraticCurveTo(size, 0, size, r);
+  ctx.lineTo(size, size - r);
+  ctx.quadraticCurveTo(size, size, size - r, size);
+  ctx.lineTo(r, size);
+  ctx.quadraticCurveTo(0, size, 0, size - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // "S" letter
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `900 ${Math.round(size * 0.65)}px "Arial Black", Arial, sans-serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('S', size / 2, size * 0.54);
+
+  return canvas.toDataURL('image/png');
+}
+
+function downloadAll() {
+  sizes.forEach(size => {
+    const dataURL = drawIcon(size);
+    const a = document.createElement('a');
+    a.href     = dataURL;
+    a.download = `icon${size}.png`;
+    a.click();
+  });
+}
+
+// Show previews on load
+window.onload = () => {
+  const container = document.getElementById('previews');
+  sizes.forEach(size => {
+    const dataURL = drawIcon(size);
+    const div = document.createElement('div');
+    div.className = 'preview';
+    div.innerHTML = `<img src="${dataURL}" width="${size}" height="${size}"><p>${size}×${size}</p>`;
+    container.appendChild(div);
+  });
+};
+</script>
+</body>
+</html>

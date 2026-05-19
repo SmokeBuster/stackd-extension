@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String         @id @default(cuid())
+  googleId    String         @unique
+  email       String         @unique
+  name        String
+  avatar      String?
+  coinBalance Int            @default(0)
+  createdAt   DateTime       @default(now())
+  codes       ReferralCode[]
+  redemptions Redemption[]
+}
+
+model ReferralCode {
+  id          String   @id @default(cuid())
+  brand       String
+  domain      String
+  emoji       String   @default("🏷")
+  code        String
+  description String
+  category    String
+  coins       Int      @default(50)
+  expiresIn   String   @default("30 days")
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Redemption {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  giftCardId Int
+  brand      String
+  value      String
+  coinsSpent Int
+  giftCode   String
+  redeemedAt DateTime @default(now())
+}

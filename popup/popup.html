@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stackd</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ── Login screen (shown when not authenticated) ── -->
+  <div class="login-screen hidden" id="loginScreen">
+    <div class="login-logo">
+      <div class="logo-mark">S</div>
+      <span class="logo-text">Stackd</span>
+    </div>
+    <p class="login-tagline">Referral codes for students,<br>by students.</p>
+    <button class="google-btn" id="signInBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+    <p class="login-note">Your coins and codes are saved to your account.</p>
+  </div>
+
+  <!-- ── Main app (shown when authenticated) ── -->
+  <div class="main-app hidden" id="mainApp">
+
+    <!-- ── Header ── -->
+    <header>
+      <div class="logo">
+        <div class="logo-mark">S</div>
+        <span class="logo-text">Stackd</span>
+      </div>
+      <div class="header-right">
+        <div class="coin-pill">
+          <span class="coin-icon">🪙</span>
+          <span class="coin-amount" id="coinAmount">0</span>
+          <span class="coin-label">coins</span>
+        </div>
+        <button class="add-btn" id="addBtn" aria-label="Share your code" title="Share your code">+</button>
+      </div>
+    </header>
+
+    <!-- ── Add Code Panel (slide-in overlay) ── -->
+    <div class="add-panel" id="addPanel" aria-hidden="true">
+      <div class="add-panel-header">
+        <span class="add-panel-title">Share Your Code</span>
+        <button class="add-panel-close" id="addPanelClose" aria-label="Close">✕</button>
+      </div>
+      <div class="add-panel-body">
+        <div class="field-group">
+          <label for="fieldBrand">Brand name <span class="req">*</span></label>
+          <input id="fieldBrand" type="text" placeholder="e.g. DoorDash" maxlength="40" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="fieldUrl">Website URL <span class="req">*</span></label>
+          <input id="fieldUrl" type="text" placeholder="e.g. doordash.com" maxlength="100" autocomplete="off" />
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="fieldEmoji">Emoji</label>
+            <input id="fieldEmoji" type="text" placeholder="🏷" maxlength="2" autocomplete="off" />
+          </div>
+          <div class="field-group">
+            <label for="fieldCode">Referral code <span class="req">*</span></label>
+            <input id="fieldCode" type="text" placeholder="MYCODE25" maxlength="30" autocomplete="off" />
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="fieldDesc">What does it offer? <span class="req">*</span></label>
+          <input id="fieldDesc" type="text" placeholder="e.g. $25 off first order" maxlength="60" autocomplete="off" />
+        </div>
+        <div class="field-row equal">
+          <div class="field-group">
+            <label for="fieldCategory">Category</label>
+            <select id="fieldCategory">
+              <option value="Food">Food</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Streaming">Streaming</option>
+              <option value="Music">Music</option>
+              <option value="Education">Education</option>
+              <option value="Productivity">Productivity</option>
+              <option value="Design">Design</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="fieldExpiry">Expires in</label>
+            <select id="fieldExpiry">
+              <option value="7 days">7 days</option>
+              <option value="14 days">14 days</option>
+              <option value="30 days" selected>30 days</option>
+              <option value="60 days">60 days</option>
+              <option value="No expiry">No expiry</option>
+            </select>
+          </div>
+        </div>
+        <div class="add-panel-reward">
+          <span class="reward-icon">🪙</span>
+          <span>You'll earn <strong>+50 coins</strong> for sharing</span>
+        </div>
+        <button class="submit-btn" id="submitCode">Share &amp; Earn Coins</button>
+        <div class="field-error" id="formError"></div>
+      </div>
+    </div>
+
+    <!-- ── Search ── -->
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input id="searchInput" type="text" placeholder="Search brands, codes, categories…" autocomplete="off" />
+      <button class="clear-btn" id="clearBtn" aria-label="Clear search">✕</button>
+    </div>
+
+    <!-- ── Site context banner ── -->
+    <div class="site-banner" id="siteBanner">
+      Showing codes for <strong id="siteName">all sites</strong>
+    </div>
+
+    <!-- ── Tabs ── -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="codes">
+        Referral Codes
+        <span class="tab-count" id="codesCount">0</span>
+      </button>
+      <button class="tab" data-tab="giftcards">
+        Gift Cards
+      </button>
+    </nav>
+
+    <!-- ── Referral Codes panel ── -->
+    <section class="panel active" id="codesPanel">
+      <div class="filter-pills" id="filterPills"></div>
+      <div class="codes-list" id="codesList"></div>
+    </section>
+
+    <!-- ── Gift Cards panel ── -->
+    <section class="panel" id="giftcardsPanel">
+      <div class="gc-grid" id="gcGrid"></div>
+      <div class="gc-note">Redeem with coins earned from sharing codes.</div>
+    </section>
+
+    <!-- ── Footer ── -->
+    <footer>
+      <span class="footer-brand">Stackd</span>
+      <button class="signout-btn" id="signOutBtn">Sign out</button>
+    </footer>
+
+  </div><!-- /#mainApp -->
+
+  <!-- ── Gift Card Redemption Modal ── -->
+  <div class="modal-overlay" id="gcModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-handle"></div>
+      <div class="modal-body" id="gcModalBody"></div>
+    </div>
+  </div>
+
+  <script src="../config.js"></script>
+  <script src="../data/mockData.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

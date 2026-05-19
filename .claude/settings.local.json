@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse \"C:\\\\Users\\\\parth\\\\OneDrive\\\\Desktop\\\\Internship\\\\Web Extention Project\\\\server\")",
+      "Bash(Select-Object FullName)",
+      "Bash(npm --version)",
+      "Bash(psql --version)",
+      "Bash(pg_isready)",
+      "PowerShell(docker --version 2>&1; docker ps 2>&1 | Select-Object -First 1)",
+      "Bash(node *)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\parth\\\\OneDrive\\\\Desktop\\\\Internship\\\\Web Extention Project\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(railway *)"
+    ]
+  }
+}
