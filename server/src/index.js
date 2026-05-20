@@ -209,6 +209,7 @@ app.post('/api/redeem', requireAuth, async (req, res) => {
 
 // ── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Stackd API → ${API_URL} (port ${PORT})`);
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Stackd API running on port ${PORT}`);
 });
