@@ -341,8 +341,9 @@ function renderCodes(codes, currentDomain) {
     return Number(bM) - Number(aM);
   });
 
-  list.innerHTML = sorted.map(code => {
+  list.innerHTML = sorted.map((code, index) => {
     const isSiteMatch = currentDomain && currentDomain.includes(code.domain.replace(/^www\./, ''));
+    const isTrending  = index < 3;
     return `
       <div class="code-card ${isSiteMatch ? 'site-match' : ''}">
         <div class="card-top">
@@ -353,7 +354,10 @@ function renderCodes(codes, currentDomain) {
               <div class="brand-category">${code.category}</div>
             </div>
           </div>
-          <div class="earn-pill">🪙 +${code.coins}</div>
+          <div class="card-top-right">
+            ${isTrending ? '<span class="trending-badge">🔥 Trending</span>' : ''}
+            <div class="earn-pill">🪙 +${code.coins}</div>
+          </div>
         </div>
         <div class="card-desc">${code.description}</div>
         <div class="code-row">
