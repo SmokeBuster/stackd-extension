@@ -6,13 +6,14 @@
   },
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "npx prisma db push && node src/index.js", 
+    "start": "npx prisma db push && node src/index.js",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

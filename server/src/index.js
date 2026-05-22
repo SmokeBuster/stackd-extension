@@ -6,9 +6,11 @@ const passport = require('passport');
 const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
 const jwt      = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const Anthropic = require('@anthropic-ai/sdk');
 
-const prisma = new PrismaClient();
-const app    = express();
+const prisma    = new PrismaClient();
+const anthropic = new Anthropic();
+const app       = express();
 
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 
@@ -202,6 +204,67 @@ app.post('/api/redeem', requireAuth, async (req, res) => {
       }),
     ]);
     res.status(201).json(redemption);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: AI code suggestions ─────────────────────────────────────────────────
+app.post('/api/ai-suggest', requireAuth, async (req, res) => {
+  const { domain } = req.body;
+  if (!domain) return res.status(400).json({ error: 'Missing domain' });
+
+  try {
+    const codes = await prisma.referralCode.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, brand: true, domain: true, category: true, description: true, emoji: true, code: true, coins: true },
+    });
+
+    if (codes.length === 0) return res.json({ suggestions: [] });
+
+    const codesJson = JSON.stringify(codes);
+
+    const response = await anthropic.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 512,
+      system: [
+        {
+          type: 'text',
+          text: 'You are a helpful assistant that matches referral codes to websites. Return ONLY valid JSON — no markdown, no explanation.',
+          cache_control: { type: 'ephemeral' },
+        },
+        {
+          type: 'text',
+          text: `Available referral codes:\n${codesJson}`,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: `The user is visiting "${domain}". Which of the available referral codes are most relevant to this site or its typical use case? Return up to 3 matches as a JSON array with this shape: [{"id":"...","score":0.9,"reason":"one short sentence"}]. If none are relevant, return [].`,
+        },
+      ],
+    });
+
+    const raw = response.content[0]?.text?.trim() ?? '[]';
+    // Strip markdown code fences if Claude wraps in ```json ... ```
+    const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    let picks;
+    try {
+      picks = JSON.parse(cleaned);
+    } catch {
+      picks = [];
+    }
+
+    // Attach full code objects to each suggestion
+    const codeMap = Object.fromEntries(codes.map(c => [c.id, c]));
+    const suggestions = picks
+      .filter(p => codeMap[p.id])
+      .map(p => ({ ...codeMap[p.id], score: p.score, reason: p.reason }))
+      .slice(0, 3);
+
+    res.json({ suggestions });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

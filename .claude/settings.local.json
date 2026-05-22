@@ -13,7 +13,12 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\parth\\\\OneDrive\\\\Desktop\\\\Internship\\\\Web Extention Project\" -Recurse -Force)",
       "Bash(Select-Object FullName, PSIsContainer)",
       "Bash(Sort-Object FullName)",
-      "Bash(railway *)"
+      "Bash(railway *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)"
     ]
   }
 }

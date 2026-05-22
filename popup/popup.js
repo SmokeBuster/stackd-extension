@@ -101,6 +101,9 @@ async function initMainApp(user, codes) {
   renderCodes(filtered(), currentDomain);
   renderGiftCards(STACKD.giftCards);
 
+  // ── AI Picks (fire-and-forget after initial render)
+  if (currentDomain) loadAiPicks(currentDomain);
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function filtered(query = document.getElementById('searchInput').value.trim()) {
     return allCodes.filter(c => {
@@ -319,6 +322,61 @@ async function initMainApp(user, codes) {
     document.getElementById('loginScreen').classList.remove('hidden');
     wireLoginScreen();
   });
+}
+
+// ── AI Picks ──────────────────────────────────────────────────────────────────
+async function loadAiPicks(domain) {
+  const section = document.getElementById('aiPicks');
+  const list    = document.getElementById('aiPicksList');
+
+  // Show skeleton while loading
+  section.hidden = false;
+  list.innerHTML = `
+    <div class="ai-skeleton"></div>
+    <div class="ai-skeleton"></div>
+    <div class="ai-skeleton"></div>`;
+
+  try {
+    const { suggestions } = await apiFetch('/api/ai-suggest', {
+      method: 'POST',
+      body: { domain },
+    });
+
+    if (!suggestions || suggestions.length === 0) {
+      section.hidden = true;
+      return;
+    }
+
+    list.innerHTML = suggestions.map(s => `
+      <div class="ai-pick-card" data-code="${s.code}">
+        <span class="ai-pick-emoji">${s.emoji}</span>
+        <div class="ai-pick-info">
+          <div class="ai-pick-brand">${s.brand}</div>
+          <div class="ai-pick-reason">${s.reason}</div>
+        </div>
+        <span class="ai-pick-code">${s.code}</span>
+      </div>`).join('');
+
+    list.querySelectorAll('.ai-pick-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const code = card.dataset.code;
+        try { await navigator.clipboard.writeText(code); } catch (_) {
+          const el = document.createElement('textarea');
+          el.value = code;
+          document.body.appendChild(el);
+          el.select();
+          document.execCommand('copy');
+          document.body.removeChild(el);
+        }
+        const codeEl = card.querySelector('.ai-pick-code');
+        const orig = codeEl.textContent;
+        codeEl.textContent = '✓ Copied!';
+        setTimeout(() => { codeEl.textContent = orig; }, 2000);
+      });
+    });
+  } catch (_) {
+    section.hidden = true;
+  }
 }
 
 // ── Render referral code cards ─────────────────────────────────────────────────
