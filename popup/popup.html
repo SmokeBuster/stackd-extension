@@ -4,11 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stackd</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
 
-  <!-- ── Login screen (shown when not authenticated) ── -->
+  <!-- ── Login screen ── -->
   <div class="login-screen hidden" id="loginScreen">
     <div class="login-logo">
       <div class="logo-mark">S</div>
@@ -28,7 +31,7 @@
     <p class="login-note">Your coins and codes are saved to your account.</p>
   </div>
 
-  <!-- ── Main app (shown when authenticated) ── -->
+  <!-- ── Main app ── -->
   <div class="main-app hidden" id="mainApp">
 
     <!-- ── Header ── -->
@@ -39,7 +42,7 @@
       </div>
       <div class="header-right">
         <div class="coin-pill">
-          <span class="coin-icon">🪙</span>
+          <span class="coin-icon">⬡</span>
           <span class="coin-amount" id="coinAmount">0</span>
           <span class="coin-label">coins</span>
         </div>
@@ -47,13 +50,27 @@
       </div>
     </header>
 
-    <!-- ── Add Code Panel (slide-in overlay) ── -->
+    <!-- ── Add Code Panel ── -->
     <div class="add-panel" id="addPanel" aria-hidden="true">
       <div class="add-panel-header">
         <span class="add-panel-title">Share Your Code</span>
         <button class="add-panel-close" id="addPanelClose" aria-label="Close">✕</button>
       </div>
       <div class="add-panel-body">
+        <div class="reward-banner">
+          <div class="reward-banner-left">
+            <span class="reward-banner-icon">⬡</span>
+            <div>
+              <div class="reward-banner-label">EARN COINS</div>
+              <div class="reward-banner-amount">+50 coins</div>
+            </div>
+          </div>
+          <div class="reward-banner-breakdown">
+            <span>Base <strong>+10</strong></span>
+            <span class="reward-sep">·</span>
+            <span>AI Verified <strong>+40</strong></span>
+          </div>
+        </div>
         <div class="field-group">
           <label for="fieldBrand">Brand name <span class="req">*</span></label>
           <input id="fieldBrand" type="text" placeholder="e.g. DoorDash" maxlength="40" autocomplete="off" />
@@ -69,7 +86,7 @@
           </div>
           <div class="field-group">
             <label for="fieldCode">Referral code <span class="req">*</span></label>
-            <input id="fieldCode" type="text" placeholder="MYCODE25" maxlength="30" autocomplete="off" />
+            <input id="fieldCode" type="text" placeholder="MYCODE25" maxlength="30" autocomplete="off" style="font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;" />
           </div>
         </div>
         <div class="field-group">
@@ -101,10 +118,6 @@
             </select>
           </div>
         </div>
-        <div class="add-panel-reward">
-          <span class="reward-icon">🪙</span>
-          <span>You'll earn <strong>+50 coins</strong> for sharing</span>
-        </div>
         <button class="submit-btn" id="submitCode">Share &amp; Earn Coins</button>
         <div class="field-error" id="formError"></div>
       </div>
@@ -112,7 +125,9 @@
 
     <!-- ── Search ── -->
     <div class="search-wrap">
-      <span class="search-ico">🔍</span>
+      <svg class="search-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
       <input id="searchInput" type="text" placeholder="Search brands, codes, categories…" autocomplete="off" />
       <button class="clear-btn" id="clearBtn" aria-label="Clear search">✕</button>
     </div>
@@ -135,10 +150,9 @@
 
     <!-- ── Referral Codes panel ── -->
     <section class="panel active" id="codesPanel">
-      <!-- AI Picks section -->
       <div class="ai-picks" id="aiPicks" hidden>
         <div class="ai-picks-header">
-          <span class="ai-picks-title">✨ AI Picks for this site</span>
+          <span class="ai-picks-title">✦ AI Picks for this site</span>
         </div>
         <div class="ai-picks-list" id="aiPicksList"></div>
       </div>
@@ -154,7 +168,7 @@
 
     <!-- ── Footer ── -->
     <footer>
-      <span class="footer-brand">Stackd</span>
+      <span class="footer-brand">STACKD</span>
       <button class="signout-btn" id="signOutBtn">Sign out</button>
     </footer>
 
