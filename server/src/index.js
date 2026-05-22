@@ -179,6 +179,19 @@ app.post('/api/codes', requireAuth, async (req, res) => {
   }
 });
 
+// ── API: delete referral code (owner only) ───────────────────────────────────
+app.delete('/api/codes/:id', requireAuth, async (req, res) => {
+  try {
+    const code = await prisma.referralCode.findUnique({ where: { id: req.params.id } });
+    if (!code) return res.status(404).json({ error: 'Not found' });
+    if (code.userId !== req.userId) return res.status(403).json({ error: 'Forbidden' });
+    await prisma.referralCode.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── API: gift card redemption ────────────────────────────────────────────────
 app.post('/api/redeem', requireAuth, async (req, res) => {
   const { giftCardId, brand, value, coins, giftCode } = req.body;
