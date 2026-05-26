@@ -15,7 +15,6 @@ const app       = express();
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-// Allow Chrome extension origins (any ID) and the API domain itself
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -88,7 +87,6 @@ app.get('/auth/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/auth/failure' }),
   (req, res) => {
     const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    // The extension's background.js watches for this URL pattern and extracts the token
     res.redirect(`/auth/success?token=${token}`);
   }
 );
@@ -124,9 +122,26 @@ app.get('/api/me', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where:  { id: req.userId },
-      select: { id: true, name: true, email: true, avatar: true, coinBalance: true },
+      select: { id: true, name: true, email: true, avatar: true, coinBalance: true, university: true },
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: save university ─────────────────────────────────────────────────────
+app.put('/api/me/university', requireAuth, async (req, res) => {
+  const { university } = req.body;
+  if (!university) return res.status(400).json({ error: 'Missing university' });
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data:  { university },
+      select: { id: true, university: true },
+    });
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -137,6 +152,7 @@ app.get('/api/me', requireAuth, async (req, res) => {
 app.get('/api/codes', async (_req, res) => {
   try {
     const codes = await prisma.referralCode.findMany({
+      where:   { isExpired: false },
       orderBy: { createdAt: 'desc' },
       include: { user: { select: { name: true, avatar: true } } },
     });
@@ -192,6 +208,136 @@ app.delete('/api/codes/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ── API: vote on a referral code ─────────────────────────────────────────────
+app.post('/api/codes/:id/vote', requireAuth, async (req, res) => {
+  const { vote } = req.body;
+  if (!['yes', 'no'].includes(vote)) {
+    return res.status(400).json({ error: 'vote must be "yes" or "no"' });
+  }
+
+  const codeId = req.params.id;
+
+  try {
+    const existing = await prisma.codeVote.findUnique({
+      where: { codeId_userId: { codeId, userId: req.userId } },
+    });
+    if (existing) return res.status(409).json({ error: 'Already voted on this code' });
+
+    await prisma.codeVote.create({
+      data: { codeId, userId: req.userId, vote },
+    });
+
+    const code = await prisma.referralCode.findUnique({ where: { id: codeId } });
+    if (!code) return res.status(404).json({ error: 'Code not found' });
+
+    const newYes = code.yesVotes + (vote === 'yes' ? 1 : 0);
+    const newNo  = code.noVotes  + (vote === 'no'  ? 1 : 0);
+    const total  = newYes + newNo;
+    const rate   = total > 0 ? newYes / total : 0;
+    const expired = newNo >= 3;
+
+    const updated = await prisma.referralCode.update({
+      where: { id: codeId },
+      data: {
+        yesVotes:    newYes,
+        noVotes:     newNo,
+        successRate: rate,
+        isExpired:   expired,
+      },
+    });
+
+    res.json({ yesVotes: updated.yesVotes, noVotes: updated.noVotes, successRate: updated.successRate, isExpired: updated.isExpired });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: Deal DNA ────────────────────────────────────────────────────────────
+app.post('/api/codes/:id/deal-dna', requireAuth, async (req, res) => {
+  const codeId = req.params.id;
+
+  try {
+    const code = await prisma.referralCode.findUnique({ where: { id: codeId } });
+    if (!code) return res.status(404).json({ error: 'Code not found' });
+
+    if (code.dealDna) return res.json({ dealDna: code.dealDna });
+
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      system: [
+        {
+          type: 'text',
+          text: 'You are a savvy consumer analyst helping students understand referral deals. Be concise and practical. Return ONLY valid JSON.',
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: `Analyze this referral deal and return a JSON object with exactly these 4 keys:
+- "why": Why does ${code.brand} offer this discount? (1-2 sentences)
+- "catches": Hidden catches or limitations to watch out for (1-2 sentences)
+- "bestTime": When is the best time to use this deal? (1 sentence)
+- "duration": How long do referral deals like this typically last? (1 sentence)
+
+Deal: ${code.brand} — "${code.description}" (code: ${code.code}, category: ${code.category})`,
+        },
+      ],
+    });
+
+    const raw = response.content[0]?.text?.trim() ?? '{}';
+    const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+
+    let dna;
+    try {
+      dna = JSON.parse(cleaned);
+    } catch {
+      dna = { why: 'To attract new customers and grow their user base.', catches: 'May require a minimum purchase or only apply to first-time users.', bestTime: 'Use it on your first purchase.', duration: 'Typically 30–90 days.' };
+    }
+
+    const dealDnaStr = JSON.stringify(dna);
+
+    await prisma.referralCode.update({
+      where: { id: codeId },
+      data:  { dealDna: dealDnaStr },
+    });
+
+    res.json({ dealDna: dealDnaStr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: university benefits ─────────────────────────────────────────────────
+app.get('/api/benefits', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where:  { id: req.userId },
+      select: { university: true },
+    });
+
+    const university = user?.university ?? 'Generic';
+
+    const [universityBenefits, genericBenefits] = await Promise.all([
+      university !== 'Generic'
+        ? prisma.universityBenefit.findMany({
+            where:   { university, isActive: true },
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      prisma.universityBenefit.findMany({
+        where:   { university: 'Generic', isActive: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    res.json({ university, benefits: [...universityBenefits, ...genericBenefits] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── API: gift card redemption ────────────────────────────────────────────────
 app.post('/api/redeem', requireAuth, async (req, res) => {
   const { giftCardId, brand, value, coins, giftCode } = req.body;
@@ -229,6 +375,7 @@ app.post('/api/ai-suggest', requireAuth, async (req, res) => {
 
   try {
     const codes = await prisma.referralCode.findMany({
+      where:   { isExpired: false },
       orderBy: { createdAt: 'desc' },
       select: { id: true, brand: true, domain: true, category: true, description: true, emoji: true, code: true, coins: true },
     });
@@ -261,7 +408,6 @@ app.post('/api/ai-suggest', requireAuth, async (req, res) => {
     });
 
     const raw = response.content[0]?.text?.trim() ?? '[]';
-    // Strip markdown code fences if Claude wraps in ```json ... ```
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     let picks;
     try {
@@ -270,7 +416,6 @@ app.post('/api/ai-suggest', requireAuth, async (req, res) => {
       picks = [];
     }
 
-    // Attach full code objects to each suggestion
     const codeMap = Object.fromEntries(codes.map(c => [c.id, c]));
     const suggestions = picks
       .filter(p => codeMap[p.id])

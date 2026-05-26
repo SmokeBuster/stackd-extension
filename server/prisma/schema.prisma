@@ -13,25 +13,46 @@ model User {
   email       String         @unique
   name        String
   avatar      String?
+  university  String?
   coinBalance Int            @default(0)
   createdAt   DateTime       @default(now())
   codes       ReferralCode[]
   redemptions Redemption[]
+  codeVotes   CodeVote[]
 }
 
 model ReferralCode {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   brand       String
   domain      String
-  emoji       String   @default("🏷")
+  emoji       String     @default("🏷")
   code        String
   description String
   category    String
-  coins       Int      @default(50)
-  expiresIn   String   @default("30 days")
-  createdAt   DateTime @default(now())
+  coins       Int        @default(50)
+  expiresIn   String     @default("30 days")
+  yesVotes    Int        @default(0)
+  noVotes     Int        @default(0)
+  successRate Float      @default(0)
+  dealDna     String?
+  isExpired   Boolean    @default(false)
+  source      String?
+  createdAt   DateTime   @default(now())
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
+  codeVotes   CodeVote[]
+}
+
+model CodeVote {
+  id        String       @id @default(cuid())
+  codeId    String
+  userId    String
+  vote      String
+  createdAt DateTime     @default(now())
+  code      ReferralCode @relation(fields: [codeId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@unique([codeId, userId])
 }
 
 model Redemption {
@@ -44,4 +65,16 @@ model Redemption {
   coinsSpent Int
   giftCode   String
   redeemedAt DateTime @default(now())
+}
+
+model UniversityBenefit {
+  id          String   @id @default(cuid())
+  university  String
+  title       String
+  description String
+  savings     String
+  howToClaim  String
+  category    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }

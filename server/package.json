@@ -6,10 +6,10 @@
   },
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "npx prisma db push && node src/index.js",
+    "start": "npx prisma db push && node prisma/seed.js && node prisma/seed-benefits.js && node src/index.js",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.js",
+    "db:seed": "node prisma/seed.js && node prisma/seed-benefits.js",
     "db:studio": "prisma studio"
   },
   "dependencies": {

@@ -1349,3 +1349,536 @@ footer {
    ANIMATIONS & UTILS
 ════════════════════════════════════════════════ */
 .coin-bump { animation: coinBump 0.5s ease; display: inline-block; }
+
+
+/* ════════════════════════════════════════════════
+   ONBOARDING SCREEN
+════════════════════════════════════════════════ */
+.onboarding-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 520px;
+  padding: 40px 28px;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.ob-glow {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.ob-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.ob-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ob-badge {
+  background: var(--indigo-lite);
+  border: 1px solid rgba(192,193,255,0.18);
+  border-radius: var(--r-full);
+  padding: 5px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--indigo-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ob-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: -0.4px;
+  line-height: 1.25;
+  margin-top: 4px;
+}
+
+.ob-sub {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.6;
+  margin-top: -4px;
+}
+
+.ob-select-wrap {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.ob-select {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xs);
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c7c4d7' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+.ob-select:focus {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+.ob-select option { background: var(--surface-mid); }
+
+.ob-btn {
+  width: 100%;
+  background: var(--indigo);
+  border: none;
+  border-radius: var(--r-full);
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.1px;
+  transition: box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 2px 20px rgba(99,102,241,0.45);
+}
+.ob-btn:hover  { box-shadow: 0 4px 28px rgba(99,102,241,0.6); }
+.ob-btn:active { transform: scale(0.98); }
+
+.ob-skip {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--muted-dim);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+  padding: 0;
+}
+.ob-skip:hover { color: var(--muted); }
+
+
+/* ════════════════════════════════════════════════
+   TABS — BENEFITS BADGE
+════════════════════════════════════════════════ */
+.tab-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: var(--r-full);
+  background: var(--indigo);
+  color: #fff;
+  vertical-align: middle;
+}
+
+
+/* ════════════════════════════════════════════════
+   BENEFITS PANEL
+════════════════════════════════════════════════ */
+.benefits-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.benefits-uni-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--indigo-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.benefits-change-btn {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  padding: 3px 10px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--muted-dim);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: border-color 0.15s, color 0.15s;
+}
+.benefits-change-btn:hover { border-color: var(--indigo-border); color: var(--indigo-dim); }
+
+.benefits-list {
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 440px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.benefits-list::-webkit-scrollbar { width: 3px; }
+.benefits-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+
+.benefits-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.benefits-loading .ai-skeleton { height: 100px; border-radius: var(--r-sm); }
+
+.benefit-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: cardIn 0.3s ease both;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.benefit-card:hover {
+  border-color: rgba(99,102,241,0.3);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+}
+
+.benefit-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.benefit-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.1px;
+  flex: 1;
+}
+
+.benefit-savings {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--lime);
+  background: var(--lime-lite);
+  border: 1px solid var(--lime-border);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.benefit-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.benefit-did-you-know {
+  background: rgba(99,102,241,0.06);
+  border: 1px solid var(--indigo-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--indigo-dim);
+  line-height: 1.5;
+}
+.benefit-did-you-know strong {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+  color: var(--indigo-dim);
+}
+
+.benefit-claim-btn {
+  background: var(--surface-high);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s, border-color 0.15s;
+  align-self: flex-start;
+}
+.benefit-claim-btn:hover {
+  background: var(--indigo-lite);
+  border-color: var(--indigo-border);
+  color: var(--indigo-dim);
+}
+
+.benefit-cat-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 2px 8px;
+  align-self: flex-start;
+}
+
+.benefits-empty {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--muted-dim);
+}
+.benefits-empty .es-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.4; }
+.benefits-empty p { font-size: 13px; line-height: 1.55; }
+
+
+/* ════════════════════════════════════════════════
+   CODE CARD EXTENSIONS — VOTE & DEAL DNA
+════════════════════════════════════════════════ */
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.success-rate-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  color: var(--green);
+  background: rgba(52,211,153,0.08);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+
+.verified-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 9px;
+  border-radius: var(--r-full);
+  color: #fff;
+  background: var(--green);
+  border: 1px solid rgba(52,211,153,0.4);
+}
+
+.dna-btn {
+  background: none;
+  border: 1px solid var(--indigo-border);
+  border-radius: var(--r-full);
+  padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--indigo-dim);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dna-btn:hover {
+  background: var(--indigo-lite);
+  border-color: var(--indigo);
+}
+
+
+/* ════════════════════════════════════════════════
+   DEAL DNA MODAL
+════════════════════════════════════════════════ */
+.dna-modal-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.dna-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.dna-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+
+.dna-modal-brand {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--indigo-dim);
+  background: var(--indigo-lite);
+  border: 1px solid var(--indigo-border);
+  border-radius: var(--r-full);
+  padding: 2px 8px;
+  letter-spacing: 0.05em;
+}
+
+.dna-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.dna-row {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dna-row-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--indigo-dim);
+}
+
+.dna-row-text {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dna-close-btn {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
+  margin-top: 2px;
+}
+.dna-close-btn:hover { background: rgba(255,255,255,0.09); color: var(--text); }
+
+
+/* ════════════════════════════════════════════════
+   VOTE TOAST
+════════════════════════════════════════════════ */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vote-toast {
+  position: fixed;
+  bottom: 52px;
+  left: 12px;
+  right: 12px;
+  background: var(--surface-mid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 400;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: toastIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.vote-toast.hidden { display: none; }
+
+.vote-toast-msg {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 500;
+  flex: 1;
+}
+
+.vote-toast-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.vote-yes, .vote-no {
+  border: none;
+  border-radius: var(--r-full);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.vote-yes {
+  background: rgba(52,211,153,0.15);
+  color: var(--green);
+  border: 1px solid rgba(52,211,153,0.3);
+}
+.vote-yes:hover { background: rgba(52,211,153,0.25); }
+.vote-no {
+  background: rgba(248,113,113,0.1);
+  color: var(--red);
+  border: 1px solid rgba(248,113,113,0.25);
+}
+.vote-no:hover { background: rgba(248,113,113,0.2); }
+.vote-yes:active, .vote-no:active { transform: scale(0.95); }
+
+.vote-dismiss {
+  background: none;
+  border: none;
+  color: var(--muted-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+.vote-dismiss:hover { color: var(--muted); }

@@ -31,6 +31,36 @@
     <p class="login-note">Your coins and codes are saved to your account.</p>
   </div>
 
+  <!-- ── Onboarding screen ── -->
+  <div class="onboarding-screen hidden" id="onboardingScreen">
+    <div class="ob-glow"></div>
+    <div class="ob-content">
+      <div class="ob-logo">
+        <div class="logo-mark">S</div>
+        <span class="logo-text">Stackd</span>
+      </div>
+      <div class="ob-badge">✦ Personalize your experience</div>
+      <h2 class="ob-title">What university<br>do you go to?</h2>
+      <p class="ob-sub">We'll show you exclusive deals and benefits for your school.</p>
+      <div class="ob-select-wrap">
+        <select id="universitySelect" class="ob-select">
+          <option value="">Select your university…</option>
+          <option value="USC">USC — University of Southern California</option>
+          <option value="UCLA">UCLA — University of California, Los Angeles</option>
+          <option value="Harvard">Harvard University</option>
+          <option value="MIT">Massachusetts Institute of Technology</option>
+          <option value="Stanford">Stanford University</option>
+          <option value="NYU">New York University</option>
+          <option value="Columbia">Columbia University</option>
+          <option value="UC Berkeley">UC Berkeley</option>
+          <option value="Other">Other university</option>
+        </select>
+      </div>
+      <button class="ob-btn" id="obSaveBtn">Unlock My Benefits →</button>
+      <button class="ob-skip" id="obSkipBtn">Skip for now</button>
+    </div>
+  </div>
+
   <!-- ── Main app ── -->
   <div class="main-app hidden" id="mainApp">
 
@@ -146,6 +176,10 @@
       <button class="tab" data-tab="giftcards">
         Gift Cards
       </button>
+      <button class="tab" data-tab="benefits">
+        Benefits
+        <span class="tab-badge" id="benefitsBadge">NEW</span>
+      </button>
     </nav>
 
     <!-- ── Referral Codes panel ── -->
@@ -166,6 +200,21 @@
       <div class="gc-note">Redeem with coins earned from sharing codes.</div>
     </section>
 
+    <!-- ── Benefits panel ── -->
+    <section class="panel" id="benefitsPanel">
+      <div class="benefits-header" id="benefitsHeader">
+        <span class="benefits-uni-label" id="benefitsUniLabel">Your Benefits</span>
+        <button class="benefits-change-btn" id="benefitsChangeBtn">Change school</button>
+      </div>
+      <div class="benefits-list" id="benefitsList">
+        <div class="benefits-loading">
+          <div class="ai-skeleton"></div>
+          <div class="ai-skeleton"></div>
+          <div class="ai-skeleton"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Footer ── -->
     <footer>
       <span class="footer-brand">STACKD</span>
@@ -180,6 +229,24 @@
       <div class="modal-handle"></div>
       <div class="modal-body" id="gcModalBody"></div>
     </div>
+  </div>
+
+  <!-- ── Deal DNA Modal ── -->
+  <div class="modal-overlay" id="dnaModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-handle"></div>
+      <div class="modal-body" id="dnaModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ── Vote Toast ── -->
+  <div class="vote-toast hidden" id="voteToast">
+    <span class="vote-toast-msg">Did the code work?</span>
+    <div class="vote-toast-btns">
+      <button class="vote-yes" id="voteYesBtn">👍 Yes</button>
+      <button class="vote-no"  id="voteNoBtn">👎 No</button>
+    </div>
+    <button class="vote-dismiss" id="voteDismissBtn">✕</button>
   </div>
 
   <script src="../config.js"></script>
