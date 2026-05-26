@@ -18,7 +18,21 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(git pull *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Skill(claude-api)",
+      "Bash(curl *)",
+      "Bash(python -m json.tool)",
+      "Bash(claude mcp *)",
+      "mcp__stitch__list_projects",
+      "mcp__stitch__list_screens",
+      "WebFetch(domain:contribution.usercontent.google.com)",
+      "Bash(npx playwright *)",
+      "Bash(where chrome *)",
+      "Bash(where \"Google Chrome\")",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\(x86\\)/Google/Chrome/Application/**)",
+      "Bash(dir \"C:\\\\Users\\\\parth\\\\OneDrive\\\\Desktop\\\\Internship\\\\Web Extention Project\\\\server\" /b)",
+      "Bash(git *)"
     ]
   }
 }
