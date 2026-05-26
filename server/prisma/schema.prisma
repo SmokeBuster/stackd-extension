@@ -8,17 +8,18 @@ datasource db {
 }
 
 model User {
-  id          String         @id @default(cuid())
-  googleId    String         @unique
-  email       String         @unique
-  name        String
-  avatar      String?
-  university  String?
-  coinBalance Int            @default(0)
-  createdAt   DateTime       @default(now())
-  codes       ReferralCode[]
-  redemptions Redemption[]
-  codeVotes   CodeVote[]
+  id             String          @id @default(cuid())
+  googleId       String          @unique
+  email          String          @unique
+  name           String
+  avatar         String?
+  university     String?
+  coinBalance    Int             @default(0)
+  createdAt      DateTime        @default(now())
+  codes          ReferralCode[]
+  redemptions    Redemption[]
+  codeVotes      CodeVote[]
+  benefitUpvotes BenefitUpvote[]
 }
 
 model ReferralCode {
@@ -68,13 +69,37 @@ model Redemption {
 }
 
 model UniversityBenefit {
-  id          String   @id @default(cuid())
-  university  String
-  title       String
-  description String
-  savings     String
-  howToClaim  String
-  category    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id             String          @id @default(cuid())
+  university     String
+  title          String
+  description    String
+  savings        String
+  howToClaim     String
+  category       String
+  isActive       Boolean         @default(true)
+  isAiDiscovered Boolean         @default(false)
+  communityAdded Boolean         @default(false)
+  addedByUserId  String?
+  upvotes        Int             @default(0)
+  lastRefreshed  DateTime?
+  sourceUrl      String?
+  createdAt      DateTime        @default(now())
+  benefitUpvotes BenefitUpvote[]
+}
+
+model BenefitUpvote {
+  id        String            @id @default(cuid())
+  benefitId String
+  userId    String
+  createdAt DateTime          @default(now())
+  benefit   UniversityBenefit @relation(fields: [benefitId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+
+  @@unique([benefitId, userId])
+}
+
+model UniversityDiscovery {
+  id         String   @id @default(cuid())
+  university String   @unique
+  lastRunAt  DateTime @default(now())
 }

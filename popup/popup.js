@@ -469,19 +469,25 @@ async function initMainApp(user, codes) {
   voteNoBtn.addEventListener('click',      () => castVote('no'));
   voteDismissBtn.addEventListener('click', dismissVoteToast);
 
-  // ── Benefits panel ───────────────────────────────────────────────────────────
+  // ── Benefits panel wiring ────────────────────────────────────────────────────
+
+  function switchToBenefitsTab() {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-tab="benefits"]').classList.add('active');
+    document.getElementById('benefitsPanel').classList.add('active');
+  }
+
+  // Change school button
   document.getElementById('benefitsChangeBtn').addEventListener('click', () => {
     const onboardingScreen = document.getElementById('onboardingScreen');
     const mainApp          = document.getElementById('mainApp');
     mainApp.classList.add('hidden');
     onboardingScreen.classList.remove('hidden');
 
-    // Re-wire onboarding with current user
     const saveBtn = document.getElementById('obSaveBtn');
     const skipBtn = document.getElementById('obSkipBtn');
     const select  = document.getElementById('universitySelect');
-
-    // Clear old listeners by cloning
     const newSave = saveBtn.cloneNode(true);
     const newSkip = skipBtn.cloneNode(true);
     saveBtn.parentNode.replaceChild(newSave, saveBtn);
@@ -496,15 +502,8 @@ async function initMainApp(user, codes) {
       }
       onboardingScreen.classList.add('hidden');
       mainApp.classList.remove('hidden');
-
-      // Re-load benefits
       loadBenefits(user);
-
-      // Switch to benefits tab
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.querySelector('[data-tab="benefits"]').classList.add('active');
-      document.getElementById('benefitsPanel').classList.add('active');
+      switchToBenefitsTab();
     }
 
     document.getElementById('obSaveBtn').addEventListener('click', async () => {
@@ -518,9 +517,141 @@ async function initMainApp(user, codes) {
       document.getElementById('obSaveBtn').textContent = 'Saving…';
       await finish(val);
     });
-
     document.getElementById('obSkipBtn').addEventListener('click', () => finish(''));
   });
+
+  // Refresh Perks button
+  document.getElementById('benefitsRefreshBtn').addEventListener('click', async () => {
+    if (!user.university || user.university === 'Generic') {
+      showInfoBanner('Set a specific university to discover AI-powered perks.');
+      return;
+    }
+    const btn = document.getElementById('benefitsRefreshBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin">🔄</span> Discovering…';
+
+    try {
+      const data = await apiFetch(
+        `/api/benefits/discover/${encodeURIComponent(user.university)}`,
+        { method: 'POST' }
+      );
+      renderBenefits(data.benefits, data.university, data.lastDiscoveredAt);
+    } catch (_) {
+      await loadBenefits(user);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔄 Refresh';
+    }
+  });
+
+  // Share Perk panel
+  const addPerkPanel = document.getElementById('addPerkPanel');
+  const addPerkClose = document.getElementById('addPerkClose');
+
+  function openAddPerkPanel() {
+    if (!user.university) {
+      showInfoBanner('Set your university first to share perks.');
+      return;
+    }
+    const banner = document.getElementById('perkUniBanner');
+    banner.textContent = `Sharing for: ${user.university} students`;
+    banner.classList.add('visible');
+    addPerkPanel.classList.add('open');
+    addPerkPanel.setAttribute('aria-hidden', 'false');
+    document.getElementById('perkTitle').focus();
+  }
+
+  function closeAddPerkPanel() {
+    addPerkPanel.classList.remove('open');
+    addPerkPanel.setAttribute('aria-hidden', 'true');
+    document.getElementById('perkFormError').textContent = '';
+    ['perkTitle', 'perkDesc', 'perkSavings', 'perkHowToClaim', 'perkSourceUrl'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.classList.remove('error'); }
+    });
+  }
+
+  document.getElementById('benefitsShareBtn').addEventListener('click', openAddPerkPanel);
+  addPerkClose.addEventListener('click', closeAddPerkPanel);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && addPerkPanel.classList.contains('open')) closeAddPerkPanel();
+  });
+
+  document.getElementById('submitPerk').addEventListener('click', async () => {
+    const title      = document.getElementById('perkTitle').value.trim();
+    const desc       = document.getElementById('perkDesc').value.trim();
+    const savings    = document.getElementById('perkSavings').value.trim();
+    const howToClaim = document.getElementById('perkHowToClaim').value.trim();
+    const category   = document.getElementById('perkCategory').value;
+    const sourceUrl  = document.getElementById('perkSourceUrl').value.trim();
+    const errEl      = document.getElementById('perkFormError');
+
+    let valid = true;
+    [['perkTitle', title], ['perkDesc', desc], ['perkSavings', savings], ['perkHowToClaim', howToClaim]].forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (!val) { el.classList.add('error'); valid = false; }
+      else       { el.classList.remove('error'); }
+    });
+    if (!valid) { errEl.textContent = 'Please fill in all required fields.'; return; }
+    errEl.textContent = '';
+
+    const btn = document.getElementById('submitPerk');
+    btn.disabled = true;
+    btn.textContent = 'Sharing…';
+
+    try {
+      await apiFetch('/api/benefits/community', {
+        method: 'POST',
+        body: { title, description: desc, savings, howToClaim, category, sourceUrl },
+      });
+      closeAddPerkPanel();
+      await loadBenefits(user);
+      switchToBenefitsTab();
+    } catch (err) {
+      errEl.textContent = err.message || 'Something went wrong. Try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Share with Fellow Students';
+    }
+  });
+
+  // Upvote delegation on benefits list
+  document.getElementById('benefitsList').addEventListener('click', async e => {
+    const upvoteBtn = e.target.closest('.benefit-upvote-btn');
+    if (!upvoteBtn) return;
+
+    const benefitId = upvoteBtn.dataset.id;
+    const wasUpvoted = upvoteBtn.classList.contains('upvoted');
+
+    // Optimistic update
+    const countEl = upvoteBtn.querySelector('.upvote-count');
+    const current = parseInt(countEl?.textContent ?? '0', 10);
+    if (countEl) countEl.textContent = wasUpvoted ? current - 1 : current + 1;
+    upvoteBtn.classList.toggle('upvoted', !wasUpvoted);
+    upvoteBtn.disabled = true;
+
+    try {
+      const result = await apiFetch(`/api/benefits/${benefitId}/upvote`, { method: 'POST' });
+      if (countEl) countEl.textContent = result.upvotes;
+      upvoteBtn.classList.toggle('upvoted', result.userUpvoted);
+    } catch (_) {
+      // Revert on failure
+      if (countEl) countEl.textContent = current;
+      upvoteBtn.classList.toggle('upvoted', wasUpvoted);
+    } finally {
+      upvoteBtn.disabled = false;
+    }
+  });
+
+  function showInfoBanner(msg) {
+    const existing = document.querySelector('.discovery-banner');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.className = 'discovery-banner';
+    banner.innerHTML = `<span>ℹ️</span><span>${msg}</span>`;
+    document.getElementById('benefitsPanel').prepend(banner);
+    setTimeout(() => banner.remove(), 4000);
+  }
 
   // ── Sign out ─────────────────────────────────────────────────────────────────
   document.getElementById('signOutBtn').addEventListener('click', async () => {
@@ -571,69 +702,17 @@ async function initMainApp(user, codes) {
 
 // ── Load benefits ─────────────────────────────────────────────────────────────
 async function loadBenefits(user) {
-  const list      = document.getElementById('benefitsList');
-  const uniLabel  = document.getElementById('benefitsUniLabel');
-
+  const list = document.getElementById('benefitsList');
   list.innerHTML = `
     <div class="benefits-loading">
-      <div class="ai-skeleton" style="height:100px;border-radius:16px"></div>
-      <div class="ai-skeleton" style="height:100px;border-radius:16px"></div>
-      <div class="ai-skeleton" style="height:100px;border-radius:16px"></div>
+      <div class="ai-skeleton" style="height:110px;border-radius:16px"></div>
+      <div class="ai-skeleton" style="height:110px;border-radius:16px"></div>
+      <div class="ai-skeleton" style="height:110px;border-radius:16px"></div>
     </div>`;
 
   try {
-    const { university, benefits } = await apiFetch('/api/benefits');
-
-    const displayName = university && university !== 'Generic' ? university : 'Student';
-    uniLabel.textContent = `${displayName} Benefits`;
-
-    if (!benefits || benefits.length === 0) {
-      list.innerHTML = `
-        <div class="benefits-empty">
-          <div class="es-icon">🎓</div>
-          <p>No benefits found.<br>Try selecting your university above.</p>
-        </div>`;
-      return;
-    }
-
-    list.innerHTML = benefits.map((b, i) => `
-      <div class="benefit-card" style="animation-delay:${i * 0.05}s">
-        <div class="benefit-card-top">
-          <span class="benefit-title">${b.title}</span>
-          <span class="benefit-savings">${b.savings}</span>
-        </div>
-        <p class="benefit-desc">${b.description}</p>
-        <div class="benefit-did-you-know">
-          <strong>✦ Did you know?</strong>
-          ${didYouKnow(b)}
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <span class="benefit-cat-pill">${b.category}</span>
-          <button class="benefit-claim-btn" data-claim="${escHtml(b.howToClaim)}">How to claim →</button>
-        </div>
-      </div>`).join('');
-
-    // Claim button shows howToClaim as inline expand
-    list.querySelectorAll('.benefit-claim-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const card = btn.closest('.benefit-card');
-        const existing = card.querySelector('.benefit-claim-detail');
-        if (existing) {
-          existing.remove();
-          btn.textContent = 'How to claim →';
-          return;
-        }
-        const detail = document.createElement('div');
-        detail.className = 'benefit-did-you-know';
-        detail.style.borderColor = 'rgba(52,211,153,0.25)';
-        detail.style.color = 'var(--green)';
-        detail.innerHTML = `<strong style="color:var(--green)">📋 How to claim</strong>${escHtml(btn.dataset.claim)}`;
-        detail.classList.add('benefit-claim-detail');
-        btn.closest('[style]').insertAdjacentElement('beforebegin', detail);
-        btn.textContent = '✕ Close';
-      });
-    });
-
+    const { university, benefits, lastDiscoveredAt } = await apiFetch('/api/benefits');
+    renderBenefits(benefits, university, lastDiscoveredAt);
   } catch (_) {
     list.innerHTML = `
       <div class="benefits-empty">
@@ -641,6 +720,84 @@ async function loadBenefits(user) {
         <p>Could not load benefits.<br>Please try again.</p>
       </div>`;
   }
+}
+
+function renderBenefits(benefits, university, lastDiscoveredAt) {
+  const list     = document.getElementById('benefitsList');
+  const uniLabel = document.getElementById('benefitsUniLabel');
+  const lastEl   = document.getElementById('benefitsLastUpdated');
+
+  const displayName = university && university !== 'Generic' ? university : 'Student';
+  uniLabel.textContent = `${displayName} Benefits`;
+
+  if (lastDiscoveredAt) {
+    lastEl.textContent = `AI updated ${timeAgo(new Date(lastDiscoveredAt))}`;
+  } else {
+    lastEl.textContent = '';
+  }
+
+  if (!benefits || benefits.length === 0) {
+    list.innerHTML = `
+      <div class="benefits-empty">
+        <div class="es-icon">🎓</div>
+        <p>No benefits found yet.<br>Click <strong>Refresh</strong> to discover AI perks.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = benefits.map((b, i) => {
+    const badge = b.isAiDiscovered
+      ? `<span class="benefit-ai-badge">🤖 AI Discovered</span>`
+      : b.communityAdded
+        ? `<span class="benefit-community-badge">👋 Added by a fellow ${escHtml(university || 'student')} student</span>`
+        : '';
+
+    const sourceLink = b.sourceUrl
+      ? `<a class="benefit-source-link" href="${escHtml(b.sourceUrl)}" target="_blank" rel="noopener">↗ Official link</a>`
+      : '';
+
+    return `
+      <div class="benefit-card" style="animation-delay:${i * 0.04}s">
+        <div class="benefit-card-top">
+          <span class="benefit-title">${escHtml(b.title)}</span>
+          <span class="benefit-savings">${escHtml(b.savings)}</span>
+        </div>
+        ${badge || sourceLink ? `<div class="benefit-badges">${badge}${sourceLink}</div>` : ''}
+        <p class="benefit-desc">${escHtml(b.description)}</p>
+        <div class="benefit-did-you-know">
+          <strong>✦ Did you know?</strong>
+          ${didYouKnow(b)}
+        </div>
+        <div class="benefit-footer-row">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="benefit-cat-pill">${escHtml(b.category)}</span>
+            <button class="benefit-claim-btn" data-claim="${escHtml(b.howToClaim)}">How to claim →</button>
+          </div>
+          <button class="benefit-upvote-btn ${b.userUpvoted ? 'upvoted' : ''}" data-id="${b.id}">
+            ▲ <span class="upvote-count">${b.upvotes ?? 0}</span>
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Claim button toggles inline detail
+  list.querySelectorAll('.benefit-claim-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.benefit-card');
+      const existing = card.querySelector('.benefit-claim-detail');
+      if (existing) {
+        existing.remove();
+        btn.textContent = 'How to claim →';
+        return;
+      }
+      const detail = document.createElement('div');
+      detail.className = 'benefit-did-you-know benefit-claim-detail';
+      detail.style.cssText = 'border-color:rgba(52,211,153,0.25);color:var(--green)';
+      detail.innerHTML = `<strong style="color:var(--green)">📋 How to claim</strong>${escHtml(btn.dataset.claim)}`;
+      btn.closest('.benefit-footer-row').insertAdjacentElement('beforebegin', detail);
+      btn.textContent = '✕ Close';
+    });
+  });
 }
 
 function didYouKnow(benefit) {
@@ -658,7 +815,16 @@ function didYouKnow(benefit) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function timeAgo(date) {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60)                     return 'just now';
+  if (secs < 3600)                   return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400)                  return `${Math.floor(secs / 3600)}h ago`;
+  if (secs < 86400 * 7)              return `${Math.floor(secs / 86400)} days ago`;
+  return date.toLocaleDateString();
 }
 
 // ── AI Picks ──────────────────────────────────────────────────────────────────

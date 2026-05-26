@@ -14,6 +14,19 @@ const app       = express();
 
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+const BENEFIT_CATEGORIES = [
+  'Software & Tools',
+  'Banking & Money',
+  'Food & Dining',
+  'Travel & Transport',
+  'Health & Wellness',
+  'Career & Jobs',
+  'Entertainment',
+  'Local Deals',
+];
+
 // ── CORS ─────────────────────────────────────────────────────────────────────
 app.use(cors({
   origin: (origin, callback) => {
@@ -75,6 +88,106 @@ function requireAuth(req, res, next) {
   }
 }
 
+// ── AI Perks Discovery ───────────────────────────────────────────────────────
+async function discoverUniversityPerks(university, force = false) {
+  if (!university || university === 'Generic') return [];
+
+  // Check if recently run
+  const existing = await prisma.universityDiscovery.findUnique({ where: { university } });
+  if (!force && existing && (Date.now() - existing.lastRunAt.getTime()) < SEVEN_DAYS_MS) {
+    return [];
+  }
+
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2048,
+    system: [
+      {
+        type: 'text',
+        text: `You are a student benefits researcher. Return ONLY a valid JSON array. No markdown, no explanation.`,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+    messages: [
+      {
+        role: 'user',
+        content: `Find all student discounts, perks, hidden benefits, and money-saving opportunities specifically for ${university} students in 2026. Include: software discounts, banking bonuses, local business deals, travel perks, health benefits, gym memberships, career perks, food discounts, and anything else students might not know about.
+
+Return a JSON array of 10-20 perks. Each item must have exactly these fields:
+- "title": short name (max 50 chars)
+- "description": what it offers (1-2 sentences)
+- "savings": estimated savings like "$600/year" or "50% off"
+- "howToClaim": how to get it (1-3 sentences)
+- "category": exactly one of: ${BENEFIT_CATEGORIES.map(c => `"${c}"`).join(', ')}
+- "sourceUrl": official URL to claim, or "" if unknown
+
+Focus on real, actionable benefits students can claim today. Return ONLY the JSON array.`,
+      },
+    ],
+  });
+
+  const raw = response.content[0]?.text?.trim() ?? '[]';
+  const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+
+  let perks = [];
+  try {
+    perks = JSON.parse(cleaned);
+    if (!Array.isArray(perks)) perks = [];
+  } catch {
+    perks = [];
+  }
+
+  // Validate and normalize each perk
+  const now = new Date();
+  const validPerks = perks
+    .filter(p => p && typeof p.title === 'string' && p.title.trim())
+    .map(p => ({
+      university,
+      title:         String(p.title).slice(0, 80).trim(),
+      description:   String(p.description || '').slice(0, 300).trim(),
+      savings:       String(p.savings || 'Varies').slice(0, 50).trim(),
+      howToClaim:    String(p.howToClaim || '').slice(0, 300).trim(),
+      category:      BENEFIT_CATEGORIES.includes(p.category) ? p.category : 'Software & Tools',
+      sourceUrl:     String(p.sourceUrl || '').slice(0, 500).trim(),
+      isAiDiscovered: true,
+      isActive:      true,
+      lastRefreshed: now,
+    }));
+
+  if (validPerks.length === 0) return [];
+
+  // Replace old AI-discovered perks for this university
+  await prisma.$transaction([
+    prisma.universityBenefit.deleteMany({
+      where: { university, isAiDiscovered: true },
+    }),
+    prisma.universityBenefit.createMany({ data: validPerks }),
+  ]);
+
+  // Update discovery log
+  await prisma.universityDiscovery.upsert({
+    where:  { university },
+    update: { lastRunAt: now },
+    create: { university, lastRunAt: now },
+  });
+
+  return validPerks;
+}
+
+// ── Scheduled 7-day refresh ───────────────────────────────────────────────────
+async function runScheduledDiscoveries() {
+  if (!process.env.ANTHROPIC_API_KEY) return;
+  try {
+    const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS);
+    const stale = await prisma.universityDiscovery.findMany({
+      where: { lastRunAt: { lt: sevenDaysAgo } },
+    });
+    for (const u of stale) {
+      await discoverUniversityPerks(u.university, true).catch(() => {});
+    }
+  } catch (_) {}
+}
+
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -131,18 +244,23 @@ app.get('/api/me', requireAuth, async (req, res) => {
   }
 });
 
-// ── API: save university ─────────────────────────────────────────────────────
+// ── API: save university + trigger background discovery ───────────────────────
 app.put('/api/me/university', requireAuth, async (req, res) => {
   const { university } = req.body;
   if (!university) return res.status(400).json({ error: 'Missing university' });
 
   try {
     const user = await prisma.user.update({
-      where: { id: req.userId },
-      data:  { university },
+      where:  { id: req.userId },
+      data:   { university },
       select: { id: true, university: true },
     });
     res.json(user);
+
+    // Fire-and-forget: discover perks for universities we haven't seen before
+    if (university !== 'Generic') {
+      discoverUniversityPerks(university, false).catch(() => {});
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -195,7 +313,6 @@ app.post('/api/codes', requireAuth, async (req, res) => {
   }
 });
 
-// ── API: delete referral code (owner only) ───────────────────────────────────
 app.delete('/api/codes/:id', requireAuth, async (req, res) => {
   try {
     const code = await prisma.referralCode.findUnique({ where: { id: req.params.id } });
@@ -208,7 +325,6 @@ app.delete('/api/codes/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── API: vote on a referral code ─────────────────────────────────────────────
 app.post('/api/codes/:id/vote', requireAuth, async (req, res) => {
   const { vote } = req.body;
   if (!['yes', 'no'].includes(vote)) {
@@ -223,27 +339,20 @@ app.post('/api/codes/:id/vote', requireAuth, async (req, res) => {
     });
     if (existing) return res.status(409).json({ error: 'Already voted on this code' });
 
-    await prisma.codeVote.create({
-      data: { codeId, userId: req.userId, vote },
-    });
+    await prisma.codeVote.create({ data: { codeId, userId: req.userId, vote } });
 
     const code = await prisma.referralCode.findUnique({ where: { id: codeId } });
     if (!code) return res.status(404).json({ error: 'Code not found' });
 
-    const newYes = code.yesVotes + (vote === 'yes' ? 1 : 0);
-    const newNo  = code.noVotes  + (vote === 'no'  ? 1 : 0);
-    const total  = newYes + newNo;
-    const rate   = total > 0 ? newYes / total : 0;
+    const newYes  = code.yesVotes + (vote === 'yes' ? 1 : 0);
+    const newNo   = code.noVotes  + (vote === 'no'  ? 1 : 0);
+    const total   = newYes + newNo;
+    const rate    = total > 0 ? newYes / total : 0;
     const expired = newNo >= 3;
 
     const updated = await prisma.referralCode.update({
       where: { id: codeId },
-      data: {
-        yesVotes:    newYes,
-        noVotes:     newNo,
-        successRate: rate,
-        isExpired:   expired,
-      },
+      data:  { yesVotes: newYes, noVotes: newNo, successRate: rate, isExpired: expired },
     });
 
     res.json({ yesVotes: updated.yesVotes, noVotes: updated.noVotes, successRate: updated.successRate, isExpired: updated.isExpired });
@@ -252,14 +361,12 @@ app.post('/api/codes/:id/vote', requireAuth, async (req, res) => {
   }
 });
 
-// ── API: Deal DNA ────────────────────────────────────────────────────────────
 app.post('/api/codes/:id/deal-dna', requireAuth, async (req, res) => {
   const codeId = req.params.id;
 
   try {
     const code = await prisma.referralCode.findUnique({ where: { id: codeId } });
     if (!code) return res.status(404).json({ error: 'Code not found' });
-
     if (code.dealDna) return res.json({ dealDna: code.dealDna });
 
     const response = await anthropic.messages.create({
@@ -290,26 +397,19 @@ Deal: ${code.brand} — "${code.description}" (code: ${code.code}, category: ${c
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
 
     let dna;
-    try {
-      dna = JSON.parse(cleaned);
-    } catch {
+    try { dna = JSON.parse(cleaned); } catch {
       dna = { why: 'To attract new customers and grow their user base.', catches: 'May require a minimum purchase or only apply to first-time users.', bestTime: 'Use it on your first purchase.', duration: 'Typically 30–90 days.' };
     }
 
     const dealDnaStr = JSON.stringify(dna);
-
-    await prisma.referralCode.update({
-      where: { id: codeId },
-      data:  { dealDna: dealDnaStr },
-    });
-
+    await prisma.referralCode.update({ where: { id: codeId }, data: { dealDna: dealDnaStr } });
     res.json({ dealDna: dealDnaStr });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── API: university benefits ─────────────────────────────────────────────────
+// ── API: university benefits (GET) ───────────────────────────────────────────
 app.get('/api/benefits', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -319,20 +419,132 @@ app.get('/api/benefits', requireAuth, async (req, res) => {
 
     const university = user?.university ?? 'Generic';
 
-    const [universityBenefits, genericBenefits] = await Promise.all([
+    const [uniPerks, genericPerks, discovery, userUpvotes] = await Promise.all([
       university !== 'Generic'
         ? prisma.universityBenefit.findMany({
             where:   { university, isActive: true },
-            orderBy: { createdAt: 'asc' },
+            orderBy: [{ upvotes: 'desc' }, { createdAt: 'asc' }],
           })
         : Promise.resolve([]),
       prisma.universityBenefit.findMany({
         where:   { university: 'Generic', isActive: true },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ upvotes: 'desc' }, { createdAt: 'asc' }],
       }),
+      prisma.universityDiscovery.findUnique({ where: { university } }),
+      prisma.benefitUpvote.findMany({ where: { userId: req.userId } }),
     ]);
 
-    res.json({ university, benefits: [...universityBenefits, ...genericBenefits] });
+    const upvotedSet = new Set(userUpvotes.map(u => u.benefitId));
+    const allBenefits = [...uniPerks, ...genericPerks].map(b => ({
+      ...b,
+      userUpvoted: upvotedSet.has(b.id),
+    }));
+
+    res.json({
+      university,
+      benefits:         allBenefits,
+      lastDiscoveredAt: discovery?.lastRunAt ?? null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: trigger AI perks discovery ─────────────────────────────────────────
+app.post('/api/benefits/discover/:university', requireAuth, async (req, res) => {
+  const university = decodeURIComponent(req.params.university);
+
+  if (!university || university === 'Generic') {
+    return res.status(400).json({ error: 'Set a specific university to discover perks' });
+  }
+
+  try {
+    await discoverUniversityPerks(university, true);
+
+    // Return fresh benefits after discovery
+    const [uniPerks, userUpvotes, discovery] = await Promise.all([
+      prisma.universityBenefit.findMany({
+        where:   { university, isActive: true },
+        orderBy: [{ upvotes: 'desc' }, { createdAt: 'asc' }],
+      }),
+      prisma.benefitUpvote.findMany({ where: { userId: req.userId } }),
+      prisma.universityDiscovery.findUnique({ where: { university } }),
+    ]);
+
+    const upvotedSet = new Set(userUpvotes.map(u => u.benefitId));
+    const benefits = uniPerks.map(b => ({ ...b, userUpvoted: upvotedSet.has(b.id) }));
+
+    res.json({ university, benefits, lastDiscoveredAt: discovery?.lastRunAt ?? null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: community perk submission ───────────────────────────────────────────
+app.post('/api/benefits/community', requireAuth, async (req, res) => {
+  const { title, description, savings, howToClaim, category, sourceUrl } = req.body;
+
+  if (!title || !description || !savings || !howToClaim) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where:  { id: req.userId },
+      select: { university: true },
+    });
+
+    if (!user?.university) {
+      return res.status(400).json({ error: 'Set your university before sharing perks' });
+    }
+
+    const benefit = await prisma.universityBenefit.create({
+      data: {
+        university:    user.university,
+        title:         title.slice(0, 80).trim(),
+        description:   description.slice(0, 300).trim(),
+        savings:       savings.slice(0, 50).trim(),
+        howToClaim:    howToClaim.slice(0, 300).trim(),
+        category:      BENEFIT_CATEGORIES.includes(category) ? category : 'Software & Tools',
+        sourceUrl:     (sourceUrl || '').slice(0, 500).trim(),
+        communityAdded: true,
+        addedByUserId:  req.userId,
+        isActive:      true,
+      },
+    });
+
+    res.status(201).json({ ...benefit, userUpvoted: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API: upvote a benefit ────────────────────────────────────────────────────
+app.post('/api/benefits/:id/upvote', requireAuth, async (req, res) => {
+  const benefitId = req.params.id;
+
+  try {
+    const existing = await prisma.benefitUpvote.findUnique({
+      where: { benefitId_userId: { benefitId, userId: req.userId } },
+    });
+
+    if (existing) {
+      // Toggle off: remove upvote
+      await prisma.benefitUpvote.delete({ where: { id: existing.id } });
+      const updated = await prisma.universityBenefit.update({
+        where: { id: benefitId },
+        data:  { upvotes: { decrement: 1 } },
+      });
+      return res.json({ upvotes: updated.upvotes, userUpvoted: false });
+    }
+
+    // Add upvote
+    await prisma.benefitUpvote.create({ data: { benefitId, userId: req.userId } });
+    const updated = await prisma.universityBenefit.update({
+      where: { id: benefitId },
+      data:  { upvotes: { increment: 1 } },
+    });
+    res.json({ upvotes: updated.upvotes, userUpvoted: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -349,9 +561,7 @@ app.post('/api/redeem', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.coinBalance < coins) {
-      return res.status(400).json({ error: 'Insufficient coins' });
-    }
+    if (user.coinBalance < coins) return res.status(400).json({ error: 'Insufficient coins' });
 
     const [redemption] = await prisma.$transaction([
       prisma.redemption.create({
@@ -382,8 +592,6 @@ app.post('/api/ai-suggest', requireAuth, async (req, res) => {
 
     if (codes.length === 0) return res.json({ suggestions: [] });
 
-    const codesJson = JSON.stringify(codes);
-
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 512,
@@ -395,26 +603,22 @@ app.post('/api/ai-suggest', requireAuth, async (req, res) => {
         },
         {
           type: 'text',
-          text: `Available referral codes:\n${codesJson}`,
+          text: `Available referral codes:\n${JSON.stringify(codes)}`,
           cache_control: { type: 'ephemeral' },
         },
       ],
       messages: [
         {
           role: 'user',
-          content: `The user is visiting "${domain}". Which of the available referral codes are most relevant to this site or its typical use case? Return up to 3 matches as a JSON array with this shape: [{"id":"...","score":0.9,"reason":"one short sentence"}]. If none are relevant, return [].`,
+          content: `The user is visiting "${domain}". Which of the available referral codes are most relevant? Return up to 3 matches as a JSON array: [{"id":"...","score":0.9,"reason":"one short sentence"}]. If none are relevant, return [].`,
         },
       ],
     });
 
     const raw = response.content[0]?.text?.trim() ?? '[]';
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-    let picks;
-    try {
-      picks = JSON.parse(cleaned);
-    } catch {
-      picks = [];
-    }
+    let picks = [];
+    try { picks = JSON.parse(cleaned); } catch { picks = []; }
 
     const codeMap = Object.fromEntries(codes.map(c => [c.id, c]));
     const suggestions = picks
@@ -431,6 +635,10 @@ app.post('/api/ai-suggest', requireAuth, async (req, res) => {
 // ── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Stackd API running on port ${PORT}`);
+
+  // Run stale-discovery check on startup, then every 6 hours
+  runScheduledDiscoveries();
+  setInterval(runScheduledDiscoveries, 6 * 60 * 60 * 1000);
 });

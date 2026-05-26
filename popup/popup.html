@@ -202,9 +202,18 @@
 
     <!-- ── Benefits panel ── -->
     <section class="panel" id="benefitsPanel">
-      <div class="benefits-header" id="benefitsHeader">
-        <span class="benefits-uni-label" id="benefitsUniLabel">Your Benefits</span>
-        <button class="benefits-change-btn" id="benefitsChangeBtn">Change school</button>
+      <div class="benefits-header">
+        <div class="benefits-header-top">
+          <span class="benefits-uni-label" id="benefitsUniLabel">Your Benefits</span>
+          <button class="benefits-change-btn" id="benefitsChangeBtn">Change school</button>
+        </div>
+        <div class="benefits-toolbar">
+          <span class="benefits-last-updated" id="benefitsLastUpdated"></span>
+          <div class="benefits-actions">
+            <button class="benefits-refresh-btn" id="benefitsRefreshBtn">🔄 Refresh</button>
+            <button class="benefits-share-btn" id="benefitsShareBtn">+ Share Perk</button>
+          </div>
+        </div>
       </div>
       <div class="benefits-list" id="benefitsList">
         <div class="benefits-loading">
@@ -214,6 +223,54 @@
         </div>
       </div>
     </section>
+
+    <!-- ── Add Perk Panel ── -->
+    <div class="add-panel" id="addPerkPanel" aria-hidden="true">
+      <div class="add-panel-header">
+        <span class="add-panel-title">Share a Perk</span>
+        <button class="add-panel-close" id="addPerkClose" aria-label="Close">✕</button>
+      </div>
+      <div class="add-panel-body">
+        <div class="perk-uni-banner" id="perkUniBanner"></div>
+        <div class="field-group">
+          <label for="perkTitle">Perk name <span class="req">*</span></label>
+          <input id="perkTitle" type="text" placeholder="e.g. Campus Rec Center free membership" maxlength="80" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="perkDesc">What does it offer? <span class="req">*</span></label>
+          <input id="perkDesc" type="text" placeholder="e.g. Free gym access for enrolled students" maxlength="200" autocomplete="off" />
+        </div>
+        <div class="field-row equal">
+          <div class="field-group">
+            <label for="perkSavings">Savings <span class="req">*</span></label>
+            <input id="perkSavings" type="text" placeholder="e.g. $600/year" maxlength="40" autocomplete="off" />
+          </div>
+          <div class="field-group">
+            <label for="perkCategory">Category</label>
+            <select id="perkCategory">
+              <option value="Software &amp; Tools">Software &amp; Tools</option>
+              <option value="Banking &amp; Money">Banking &amp; Money</option>
+              <option value="Food &amp; Dining">Food &amp; Dining</option>
+              <option value="Travel &amp; Transport">Travel &amp; Transport</option>
+              <option value="Health &amp; Wellness">Health &amp; Wellness</option>
+              <option value="Career &amp; Jobs">Career &amp; Jobs</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Local Deals">Local Deals</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="perkHowToClaim">How to claim <span class="req">*</span></label>
+          <input id="perkHowToClaim" type="text" placeholder="e.g. Show student ID at front desk" maxlength="200" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="perkSourceUrl">Source URL <span class="opt">(optional)</span></label>
+          <input id="perkSourceUrl" type="text" placeholder="https://…" maxlength="300" autocomplete="off" />
+        </div>
+        <button class="submit-btn" id="submitPerk">Share with Fellow Students</button>
+        <div class="field-error" id="perkFormError"></div>
+      </div>
+    </div>
 
     <!-- ── Footer ── -->
     <footer>
