@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stackd",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Share referral codes, earn coins, and redeem gift cards — built for students.",
   "action": {
     "default_popup": "popup/popup.html"
@@ -9,7 +9,14 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["activeTab", "tabs", "storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["activeTab", "tabs", "storage", "scripting"],
   "host_permissions": [
     "http://localhost:3001/*",
     "https://*/*"
