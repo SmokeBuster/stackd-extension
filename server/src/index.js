@@ -578,6 +578,99 @@ app.post('/api/redeem', requireAuth, async (req, res) => {
   }
 });
 
+// ── API: AI smart search ──────────────────────────────────────────────────────
+app.post('/api/search/ai', requireAuth, async (req, res) => {
+  const query = (req.body.query || '').trim();
+  if (!query) return res.status(400).json({ error: 'Missing query' });
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: [
+        {
+          type: 'text',
+          text: 'You are a student deals researcher. Return ONLY valid JSON array — no markdown, no explanation.',
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: `Find real working referral codes or student discounts for: "${query}".
+Return a JSON array of up to 5 items. Each item must have exactly these fields:
+- "brand": brand/company name (string)
+- "emoji": one relevant emoji (string)
+- "code": the actual referral or discount code, or "" if genuinely unknown (string)
+- "discount": what the discount offers e.g. "$25 off first order" (string)
+- "category": one of Food, Shopping, Streaming, Music, Education, Productivity, Design, Other (string)
+- "expiry": e.g. "30 days" or "No expiry" (string)
+- "domain": main website domain e.g. "doordash.com" (string)
+Focus on commonly-known, likely-valid codes. Return ONLY the JSON array.`,
+        },
+      ],
+    });
+
+    const raw = response.content[0]?.text?.trim() ?? '[]';
+    const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+
+    let results = [];
+    try { results = JSON.parse(cleaned); } catch { results = []; }
+    if (!Array.isArray(results)) results = [];
+
+    const VALID_CATEGORIES = ['Food','Shopping','Streaming','Music','Education','Productivity','Design','Other'];
+
+    // Validate and normalize
+    const valid = results
+      .filter(r => r && typeof r.brand === 'string' && r.brand.trim())
+      .map(r => ({
+        brand:    String(r.brand).slice(0, 40).trim(),
+        emoji:    String(r.emoji || '🏷').slice(0, 4).trim(),
+        code:     String(r.code || '').toUpperCase().slice(0, 30).trim(),
+        discount: String(r.discount || '').slice(0, 80).trim(),
+        category: VALID_CATEGORIES.includes(r.category) ? r.category : 'Other',
+        expiry:   String(r.expiry || '30 days').slice(0, 20).trim(),
+        domain:   String(r.domain || '').toLowerCase().replace(/^www\./, '').slice(0, 100).trim(),
+      }));
+
+    // Auto-save codes that have a code value and aren't already in DB
+    const withCode = valid.filter(r => r.code);
+    if (withCode.length > 0) {
+      const existing = await prisma.referralCode.findMany({
+        where: {
+          brand:     { in: withCode.map(r => r.brand) },
+          isExpired: false,
+        },
+        select: { brand: true },
+      });
+      const existingBrands = new Set(existing.map(e => e.brand.toLowerCase()));
+
+      const toSave = withCode.filter(r => !existingBrands.has(r.brand.toLowerCase()));
+      if (toSave.length > 0) {
+        await prisma.referralCode.createMany({
+          data: toSave.map(r => ({
+            brand:       r.brand,
+            domain:      r.domain || r.brand.toLowerCase().replace(/\s+/g, '') + '.com',
+            emoji:       r.emoji,
+            code:        r.code,
+            description: r.discount,
+            category:    r.category,
+            expiresIn:   r.expiry,
+            coins:       0,
+            userId:      req.userId,
+            source:      'ai-search',
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    res.json({ results: valid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── API: AI code suggestions ─────────────────────────────────────────────────
 app.post('/api/ai-suggest', requireAuth, async (req, res) => {
   const { domain } = req.body;

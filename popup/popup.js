@@ -195,18 +195,206 @@ async function initMainApp(user, codes) {
   // ── Search ───────────────────────────────────────────────────────────────────
   const searchInput = document.getElementById('searchInput');
   const clearBtn    = document.getElementById('clearBtn');
+  const aiFound     = document.getElementById('aiFound');
+  const aiFoundList = document.getElementById('aiFoundList');
+
+  let aiSearchTimer  = null;
+  let lastAiQuery    = '';
 
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim();
     clearBtn.classList.toggle('visible', q.length > 0);
-    renderCodes(filtered(q), currentDomain);
+
+    // Hide AI results whenever the query changes
+    aiFound.hidden = true;
+    clearTimeout(aiSearchTimer);
+
+    const results = filtered(q);
+    renderCodes(results, currentDomain);
+
+    // Auto-trigger AI search after 600ms if 0 regular results and query ≥ 2 chars
+    if (q.length >= 2 && results.length === 0 && q !== lastAiQuery) {
+      aiSearchTimer = setTimeout(() => {
+        if (searchInput.value.trim() === q) triggerAiSearch(q);
+      }, 600);
+    }
   });
 
   clearBtn.addEventListener('click', () => {
     searchInput.value = '';
     clearBtn.classList.remove('visible');
+    clearTimeout(aiSearchTimer);
+    aiFound.hidden = true;
+    lastAiQuery    = '';
     renderCodes(filtered(''), currentDomain);
     searchInput.focus();
+  });
+
+  // Dismiss AI results
+  document.getElementById('aiFoundDismiss').addEventListener('click', () => {
+    aiFound.hidden = true;
+  });
+
+  // ── AI Smart Search ──────────────────────────────────────────────────────────
+  async function triggerAiSearch(query) {
+    lastAiQuery = query;
+    const codesList = document.getElementById('codesList');
+
+    // Show loading state in codes list
+    codesList.innerHTML = `
+      <div class="ai-search-loading">
+        <div class="ai-search-spinner">🤖</div>
+        <span>AI is searching for you…</span>
+      </div>`;
+
+    try {
+      const { results } = await apiFetch('/api/search/ai', {
+        method: 'POST',
+        body:   { query },
+      });
+
+      // Save to recent searches on success
+      await saveRecentSearch(query);
+
+      if (!results || results.length === 0) {
+        renderCodes([], currentDomain);
+        return;
+      }
+
+      // Restore normal empty state (no DB codes for this query)
+      renderCodes([], currentDomain);
+
+      // Show AI Found section
+      aiFound.hidden = false;
+      aiFoundList.innerHTML = results.map(r => `
+        <div class="ai-found-card" data-code="${escHtml(r.code || '')}">
+          <span class="ai-found-emoji">${escHtml(r.emoji || '🏷️')}</span>
+          <div class="ai-found-info">
+            <div class="ai-found-brand">${escHtml(r.brand)}</div>
+            <div class="ai-found-discount">${escHtml(r.discount || '')}</div>
+          </div>
+          ${r.code ? `<span class="ai-found-code">${escHtml(r.code)}</span>` : ''}
+        </div>`).join('');
+
+      // Copy code on click
+      aiFoundList.querySelectorAll('.ai-found-card').forEach(card => {
+        const code = card.dataset.code;
+        if (!code) return;
+        card.addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(code); } catch (_) {
+            const el = document.createElement('textarea');
+            el.value = code;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+          }
+          const codeEl = card.querySelector('.ai-found-code');
+          if (codeEl) {
+            const orig = codeEl.textContent;
+            codeEl.textContent = '✓ Copied!';
+            setTimeout(() => { codeEl.textContent = orig; }, 2000);
+          }
+        });
+      });
+    } catch (_) {
+      // On failure restore the standard empty state
+      renderCodes([], currentDomain);
+    }
+  }
+
+  // ── Recent searches ──────────────────────────────────────────────────────────
+  const recentSearchesEl   = document.getElementById('recentSearches');
+  const recentSearchesList = document.getElementById('recentSearchesList');
+
+  async function getRecentSearches() {
+    const data = await chrome.storage.local.get('recentSearches');
+    return Array.isArray(data.recentSearches) ? data.recentSearches : [];
+  }
+
+  async function saveRecentSearch(query) {
+    const searches = await getRecentSearches();
+    const updated  = [query, ...searches.filter(s => s !== query)].slice(0, 5);
+    await chrome.storage.local.set({ recentSearches: updated });
+  }
+
+  searchInput.addEventListener('focus', async () => {
+    const searches = await getRecentSearches();
+    if (searches.length === 0) return;
+    recentSearchesList.innerHTML = searches.map(s => `
+      <button class="recent-search-item" data-q="${escHtml(s)}">${escHtml(s)}</button>`
+    ).join('');
+    recentSearchesEl.hidden = false;
+  });
+
+  searchInput.addEventListener('blur', () => {
+    // Delay so clicks on recent items fire before hiding
+    setTimeout(() => { recentSearchesEl.hidden = true; }, 220);
+  });
+
+  recentSearchesList.addEventListener('click', e => {
+    const btn = e.target.closest('.recent-search-item');
+    if (!btn) return;
+    searchInput.value = btn.dataset.q;
+    clearBtn.classList.add('visible');
+    recentSearchesEl.hidden = true;
+    searchInput.dispatchEvent(new Event('input'));
+    searchInput.focus();
+  });
+
+  // ── Voice search ─────────────────────────────────────────────────────────────
+  const voiceBtn = document.getElementById('voiceBtn');
+  let recognition = null;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SpeechRecognition) {
+    voiceBtn.style.display = 'inline-flex';
+    voiceBtn.addEventListener('click', () => {
+      if (recognition) {
+        recognition.stop();
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.continuous    = false;
+      recognition.interimResults = false;
+      recognition.lang          = 'en-US';
+
+      voiceBtn.classList.add('listening');
+      voiceBtn.textContent = '🔴';
+
+      recognition.onresult = e => {
+        const transcript = e.results[0][0].transcript.trim();
+        if (transcript) {
+          searchInput.value = transcript;
+          clearBtn.classList.add('visible');
+          searchInput.dispatchEvent(new Event('input'));
+        }
+      };
+
+      const resetVoiceBtn = () => {
+        recognition = null;
+        voiceBtn.classList.remove('listening');
+        voiceBtn.textContent = '🎤';
+      };
+
+      recognition.onend   = resetVoiceBtn;
+      recognition.onerror = resetVoiceBtn;
+      recognition.start();
+    });
+  } else {
+    voiceBtn.style.display = 'none';
+  }
+
+  // ── Press "/" to focus search ─────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' &&
+        document.activeElement !== searchInput &&
+        document.activeElement.tagName !== 'INPUT' &&
+        document.activeElement.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    }
   });
 
   // ── Category pills ───────────────────────────────────────────────────────────

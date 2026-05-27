@@ -154,12 +154,19 @@
     </div>
 
     <!-- ── Search ── -->
-    <div class="search-wrap">
-      <svg class="search-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <input id="searchInput" type="text" placeholder="Search brands, codes, categories…" autocomplete="off" />
-      <button class="clear-btn" id="clearBtn" aria-label="Clear search">✕</button>
+    <div class="search-container">
+      <div class="search-wrap">
+        <svg class="search-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="searchInput" type="text" placeholder="Search brands, codes… (press / to focus)" autocomplete="off" />
+        <button class="voice-btn" id="voiceBtn" aria-label="Voice search" title="Voice search">🎤</button>
+        <button class="clear-btn" id="clearBtn" aria-label="Clear search">✕</button>
+      </div>
+      <div class="recent-searches" id="recentSearches" hidden>
+        <div class="recent-searches-header">Recent searches</div>
+        <div id="recentSearchesList"></div>
+      </div>
     </div>
 
     <!-- ── Site context banner ── -->
@@ -191,6 +198,14 @@
         <div class="ai-picks-list" id="aiPicksList"></div>
       </div>
       <div class="filter-pills" id="filterPills"></div>
+      <!-- AI Smart Search results -->
+      <div class="ai-found" id="aiFound" hidden>
+        <div class="ai-found-header">
+          <span class="ai-found-title">🤖 AI Found These</span>
+          <button class="ai-found-dismiss" id="aiFoundDismiss" aria-label="Dismiss">✕</button>
+        </div>
+        <div class="ai-found-list" id="aiFoundList"></div>
+      </div>
       <div class="codes-list" id="codesList"></div>
     </section>
 

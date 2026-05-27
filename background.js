@@ -25,16 +25,30 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 });
 
-// ── In-memory codes cache (lives as long as service worker is alive) ──────────
-let _codesCache = null;
-let _cacheTime  = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// ── Persistent codes cache (survives service-worker restarts) ─────────────────
+// In-memory mirror for the same run — avoids redundant storage reads
+let _memCodes = null;
+let _memTime  = 0;
+
+const CODES_CACHE_KEY = 'stackd_bg_codes_cache';
+const CACHE_TTL       = 5 * 60 * 1000; // 5 minutes
 
 async function fetchCodes() {
-  if (_codesCache && Date.now() - _cacheTime < CACHE_TTL) {
-    return _codesCache;
+  // 1. Check in-memory mirror (fastest — same SW activation)
+  if (_memCodes && Date.now() - _memTime < CACHE_TTL) {
+    return _memCodes;
   }
 
+  // 2. Check persistent storage (survives SW restarts)
+  const stored = await chrome.storage.local.get(CODES_CACHE_KEY);
+  const entry  = stored[CODES_CACHE_KEY];
+  if (entry && (Date.now() - entry.time) < CACHE_TTL) {
+    _memCodes = entry.codes;
+    _memTime  = entry.time;
+    return _memCodes;
+  }
+
+  // 3. Fetch fresh from API
   const base = (typeof STACKD_API !== 'undefined') ? STACKD_API : 'http://localhost:3001';
   const { authToken } = await chrome.storage.local.get('authToken');
   const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
@@ -43,8 +57,13 @@ async function fetchCodes() {
   if (!res.ok) return [];
 
   const codes = await res.json();
-  _codesCache = codes;
-  _cacheTime  = Date.now();
+
+  // Persist to storage and update in-memory mirror
+  const now = Date.now();
+  await chrome.storage.local.set({ [CODES_CACHE_KEY]: { codes, time: now } });
+  _memCodes = codes;
+  _memTime  = now;
+
   return codes;
 }
 
@@ -55,9 +74,8 @@ function codesForDomain(codes, domain) {
   });
 }
 
-// ── Message handler for content script ───────────────────────────────────────
+// ── Message handler ───────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  // Content script asking: do you have codes for this domain?
   if (msg.type === 'STACKD_CHECK') {
     const domain = msg.domain;
     if (!domain) {
@@ -69,10 +87,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .then(all => sendResponse({ codes: codesForDomain(all, domain).slice(0, 3) }))
       .catch(() => sendResponse({ codes: [] }));
 
-    return true; // keep message channel open for async sendResponse
+    return true; // keep channel open for async sendResponse
   }
 
-  // Content script asking background to open the popup
   if (msg.type === 'STACKD_OPEN_POPUP') {
     chrome.action.openPopup().catch(() => {});
     return false;
